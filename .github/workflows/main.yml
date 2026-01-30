@@ -1,15 +1,20 @@
-name: Build Optimized
+name: Bloodie Hack Optimized Build
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Configure CMake
+      # Build the project located in the "project basic" directory
       run: cmake -B build -S "project basic"
 
     - name: Build
