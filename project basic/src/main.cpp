@@ -31,25 +31,18 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 HWND hTargetWindow = NULL;
 Memory* g_Mem = nullptr;
 
-// --- CORE LOGIC ---
 void HandleFeature(Feature& f, bool enabled) {
     if (!Globals::isAttached || !g_Mem) return;
-    
-    // Priority for Revert
     if (f.name == "Safety Revert" && enabled) {
-        if (f.address != 0) g_Mem->Patch(f.address, f.replace); // Restore original bytes
-        Globals::bRevert = false; // Reset toggle
+        if (f.address != 0) g_Mem->Patch(f.address, f.replace);
+        Globals::bRevert = false;
         return;
     }
-
     if (enabled && !f.applied) {
         if (f.address == 0) f.address = g_Mem->FindPattern(f.search);
-        
-        if (f.address != 0) {
-            if (g_Mem->Patch(f.address, f.replace)) {
-                f.applied = true;
-                std::cout << "[SUCCESS] Applied: " << f.name << std::endl;
-            }
+        if (f.address != 0 && g_Mem->Patch(f.address, f.replace)) {
+            f.applied = true;
+            std::cout << "[SUCCESS] Applied: " << f.name << std::endl;
         }
     } else if (!enabled && f.applied) {
         if (f.address != 0 && g_Mem->Patch(f.address, f.search)) {
@@ -64,12 +57,10 @@ void EmulatorThread() {
         if (!Globals::isAttached) {
             if (g_Mem) delete g_Mem;
             g_Mem = new Memory("");
-            
             for (const auto& emu : Globals::SUPPORTED_EMULATORS) {
                 if (g_Mem->Attach(emu)) {
                     Globals::currentProcess = emu;
                     Globals::isAttached = true;
-                    // Find window logic
                     if (emu == "HD-Player.exe") hTargetWindow = FindWindowA(NULL, "BlueStacks App Player");
                     if (!hTargetWindow) hTargetWindow = FindWindowA(NULL, "MSI App Player");
                     if (!hTargetWindow) hTargetWindow = FindWindowA(NULL, "LDPlayer");
@@ -77,7 +68,6 @@ void EmulatorThread() {
                 }
             }
         } else {
-            // Check if process died
             DWORD exitCode;
             if (GetExitCodeProcess(g_Mem->hProcess, &exitCode) && exitCode != STILL_ACTIVE) {
                 Globals::isAttached = false;
@@ -93,11 +83,8 @@ int main(int, char**)
 {
     AllocConsole();
     FILE* fp; freopen_s(&fp, "CONOUT$", "w", stdout);
-    
-    // Start background threads
     std::thread(EmulatorThread).detach();
 
-    // UI Setup
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"BloodieOverlay", NULL };
     RegisterClassExW(&wc);
     HWND hwnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW, wc.lpszClassName, L"Bloodie Hack", WS_POPUP, 0, 0, 1920, 1080, NULL, NULL, wc.hInstance, NULL);
@@ -120,34 +107,31 @@ int main(int, char**)
     while (!done) {
         MSG msg;
         while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            TranslateMessage(&msg); DispatchMessage(&msg);
             if (msg.message == WM_QUIT) done = true;
         }
         if (done) break;
 
-        // Overlay Follow
         if (hTargetWindow && IsWindow(hTargetWindow)) {
             RECT rect; GetWindowRect(hTargetWindow, &rect);
             MoveWindow(hwnd, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, TRUE);
         }
 
-        // Logic
         if (Globals::isLoggedIn && Globals::isAttached) {
             HandleFeature(fBypass1, Globals::bBypass1);
             HandleFeature(fBypass2, Globals::bBypass2);
             HandleFeature(fBypass3, Globals::bBypass3);
             HandleFeature(fAimLock, Globals::bAimLock);
+            HandleFeature(fAimbotHead, Globals::bAimbotHead);
             HandleFeature(fSpeed, Globals::bSpeed);
-            if (Globals::bRevert) HandleFeature(fRevert, true); // Trigger one-shot revert
+            HandleFeature(fWallhack, Globals::bWallhack);
+            if (Globals::bRevert) HandleFeature(fRevert, true);
         }
 
-        // Render
         ImGui_ImplDX9_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
         
-        // Fullscreen transparency for click-through
         ImGui::SetNextWindowPos(ImVec2(0,0));
         ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
         ImGui::Begin("BG", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
@@ -155,7 +139,6 @@ int main(int, char**)
 
         if (Globals::bMenuVisible) RenderGUI();
 
-        // Click-Through
         static bool wasVisible = true;
         if (Globals::bMenuVisible != wasVisible) {
             wasVisible = Globals::bMenuVisible;
@@ -167,7 +150,9 @@ int main(int, char**)
         if (GetAsyncKeyState(VK_INSERT) & 1) Globals::bMenuVisible = !Globals::bMenuVisible;
 
         ImGui::EndFrame();
-        g_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCLEAR_ARGB(0, 0, 0, 0), 1.0f, 0);
+        // Clear with 0 for full transparency. 
+        // DO NOT USE D3DCLEAR_ARGB OR D3DCOLOR_ARGB MACROS HERE TO AVOID COMPILER ISSUES.
+        g_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET, 0x00000000, 1.0f, 0);
         if (g_pd3dDevice->BeginScene() >= 0) {
             ImGui::Render();
             ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());

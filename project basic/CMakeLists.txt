@@ -4,6 +4,8 @@ project(BloodieHackOptimized)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_UNICODE ON)
 
+add_compile_definitions(IMGUI_DEFINE_MATH_OPERATORS)
+
 include(FetchContent)
 
 FetchContent_Declare(
