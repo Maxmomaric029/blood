@@ -1,4 +1,7 @@
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+
 #include "gui.h"
 #include "globals.h"
 #include "hacks.h"
@@ -12,9 +15,9 @@
 #include <vector>
 #pragma comment(lib, "urlmon.lib")
 
-// Manual ImVec2 operators just in case the macro fails
-static inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y); }
-static inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y); }
+// Helper function to safely add ImVec2 without operator overloading issues
+static inline ImVec2 Add(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y); }
+static inline ImVec2 Subtract(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y); }
 
 // Particles
 struct Particle {
@@ -55,7 +58,8 @@ void DrawParticles() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 winPos = ImGui::GetWindowPos();
     for (auto& p : particles) {
-        drawList->AddCircleFilled(ImVec2(winPos.x + p.pos.x, winPos.y + p.pos.y), p.size, ImColor(255, 0, 0, (int)(p.alpha * 255)));
+        // Use Add helper instead of operator+
+        drawList->AddCircleFilled(Add(winPos, p.pos), p.size, ImColor(255, 0, 0, (int)(p.alpha * 255)));
     }
 }
 
@@ -89,8 +93,8 @@ bool ToggleButton(const char* label, bool* v) {
     
     // Text
     ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
-    ImVec2 text_pos_min = ImVec2(bb.Min.x + style.FramePadding.x, bb.Min.y + style.FramePadding.y);
-    ImVec2 text_pos_max = ImVec2(bb.Max.x - style.FramePadding.x, bb.Max.y - style.FramePadding.y);
+    ImVec2 text_pos_min = Add(bb.Min, style.FramePadding);
+    ImVec2 text_pos_max = Subtract(bb.Max, style.FramePadding);
     ImGui::RenderTextClipped(text_pos_min, text_pos_max, label, NULL, &label_size, style.ButtonTextAlign, &bb);
     
     // Status dot
